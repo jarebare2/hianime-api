@@ -1,5 +1,5 @@
-import { animeNumId, siteAjax } from '../fetch';
-import { validationError } from '../utils/errors';
+import { animeNumId, siteAjax } from '../fetch.js';
+import { validationError } from '../utils/errors.js';
 
 export interface Episode {
   title: string | null;
