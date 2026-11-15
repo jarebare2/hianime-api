@@ -1,3 +1,4 @@
+import config from '../config.js';
 import { getPlayerHosts, PlayerHosts, siteAjax } from '../fetch.js';
 import { validationError } from '../utils/errors.js';
 
@@ -18,6 +19,7 @@ export interface ServerPayload {
 export interface ServerEntry {
   serverName: string | null;
   serverId: string | null;
+  m3u8: string | null;
   iframe: string;
 }
 
@@ -26,6 +28,59 @@ export interface ServersResponse {
   type: ServerType;
   servers: ServerEntry[];
 }
+
+const PLAYER_RESOLVE_TIMEOUT_MS = 5000;
+
+const resolveM3u8Url = async (embedUrl: string, hosts: PlayerHosts): Promise<string | null> => {
+  try {
+    const playerUrl = new URL(embedUrl);
+    const allowedOrigins = new Set(Object.values(hosts).map(host => new URL(host).origin));
+    if (playerUrl.protocol !== 'https:' || !allowedOrigins.has(playerUrl.origin)) return null;
+
+    const playerResponse = await fetch(playerUrl, {
+      headers: {
+        'User-Agent': config.headers['User-Agent'],
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
+      signal: AbortSignal.timeout(PLAYER_RESOLVE_TIMEOUT_MS),
+      redirect: 'error',
+    });
+    if (!playerResponse.ok) return null;
+
+    const html = await playerResponse.text();
+    const endpointMatch = html.match(/sourcesUrl\s*=\s*['"]([^'"]+)['"]/i);
+    if (!endpointMatch) return null;
+
+    const sourcesUrl = new URL(endpointMatch[1], playerUrl);
+    if (sourcesUrl.origin !== playerUrl.origin) return null;
+
+    const sourcesResponse = await fetch(sourcesUrl, {
+      headers: {
+        'User-Agent': config.headers['User-Agent'],
+        Accept: 'application/json',
+        Referer: playerUrl.toString(),
+      },
+      signal: AbortSignal.timeout(PLAYER_RESOLVE_TIMEOUT_MS),
+      redirect: 'error',
+    });
+    if (!sourcesResponse.ok) return null;
+
+    const payload = (await sourcesResponse.json()) as {
+      sources?: Array<{ file?: unknown; type?: unknown }>;
+    };
+    const source = payload.sources?.find(
+      item =>
+        typeof item.file === 'string' &&
+        (String(item.type).toLowerCase() === 'hls' || /\.m3u8(?:$|\?)/i.test(item.file))
+    );
+    if (!source || typeof source.file !== 'string') return null;
+
+    const mediaUrl = new URL(source.file, playerUrl);
+    return mediaUrl.protocol === 'https:' ? mediaUrl.toString() : null;
+  } catch {
+    return null;
+  }
+};
 
 export const buildEmbedUrl = (
   hosts: PlayerHosts,
@@ -38,7 +93,7 @@ export const buildEmbedUrl = (
   episodeNumber?: number
 ): string => {
   const { flixera, cdn, zcdn } = hosts;
-  let base = '';
+  let base: string;
   let useFlixeraQuery = false;
 
   if (serverName === 's-1') {
@@ -92,6 +147,7 @@ export const extractServers = (
     servers: list.map(entry => ({
       serverName: entry.serverName || null,
       serverId: entry.serverId || null,
+      m3u8: null,
       iframe: buildEmbedUrl(hosts, entry.serverName || '', episodeId, type, aniId, malId, fxId),
     })),
   };
@@ -117,5 +173,12 @@ export const getServers = async (
     );
   }
   const hosts = await getPlayerHosts();
-  return extractServers(payload, episodeId, type, hosts, ani, mal, fx);
+  const response = extractServers(payload, episodeId, type, hosts, ani, mal, fx);
+  const servers = await Promise.all(
+    response.servers.map(async server => ({
+      ...server,
+      m3u8: await resolveM3u8Url(server.iframe, hosts),
+    }))
+  );
+  return { ...response, servers };
 };

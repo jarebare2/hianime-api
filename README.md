@@ -88,15 +88,16 @@ hianime-api is a comprehensive RESTful API that provides endpoints to retrieve a
 
 ## Video Integration
 
-The `GET /api/v2/servers/:episodeId` endpoint returns ready-to-embed player `iframe` URLs for every available server, so you can drop them straight into an `<iframe>` — no URL building needed on your side. Get the `:episodeId` from `GET /api/v2/episodes/:id`.
+The `GET /api/v2/servers/:episodeId` endpoint returns an `m3u8` playlist URL when a provider exposes HLS, along with the original `iframe` URL as a fallback. Providers that do not expose a direct playlist return `m3u8: null`. Playlist URLs can be short-lived, so fetch the server list close to playback time. Get the `:episodeId` from `GET /api/v2/episodes/:id`.
 
 ```javascript
 const eps = await fetch('/api/v2/episodes/one-piece-12').then(r => r.json());
 const servers = await fetch(`/api/v2/servers/${eps.data[0].id}?type=sub`).then(r => r.json());
-console.log(servers.data.servers[0].iframe);
+const server = servers.data.servers.find(item => item.m3u8);
+console.log(server?.m3u8 ?? servers.data.servers[0].iframe);
 ```
 
-For manual embedding, the players follow this format (same as the site builds itself):
+For providers without direct HLS, the iframe fallback follows this format:
 
 **Embed Example URL:** `https://cdn.4animo.xyz/api/embed/hd-1/13825/sub?k=1&autoPlay=1&skipIntro=1&skipOutro=1`
 
@@ -827,7 +828,7 @@ console.log(data);
 
 ### 13. GET Episode Servers
 
-Retrieve the available streaming servers for an episode, each with its direct player `iframe` embed URL. Use the episode `id` from [Anime Episodes](#12-get-anime-episodes).
+Retrieve the available streaming servers for an episode. Each entry includes a direct `m3u8` HLS playlist when supported and the player `iframe` as a compatibility fallback. `m3u8` is `null` when a provider does not expose HLS. Use the episode `id` from [Anime Episodes](#12-get-anime-episodes).
 
 **Endpoint:**
 
@@ -863,6 +864,7 @@ console.log(data);
       {
         "serverName": "s-2",
         "serverId": "1-s2",
+        "m3u8": null,
         "iframe": "https://cdn.4animo.xyz/embed/hd-1/1/sub?k=1&autoPlay=0&skipIntro=0&skipOutro=0"
       }
     ]
