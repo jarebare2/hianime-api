@@ -1,6 +1,6 @@
 import { load } from 'cheerio';
-import { getHtml } from '../fetch';
-import { validationError } from '../utils/errors';
+import { getHtml } from '../fetch.js';
+import { validationError } from '../utils/errors.js';
 
 export interface Character {
   name: string | null;

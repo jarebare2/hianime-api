@@ -1,26 +1,26 @@
 import { Hono, Context } from 'hono';
 import { load } from 'cheerio';
-import handler from './utils/handler';
-import filterOptions, { genreNames } from './utils/filter';
-import { NotFoundError, validationError } from './utils/errors';
-import { animeNumId, getHtml } from './fetch';
-import { extractHomepage } from './extractor/home';
-import { extractDetailpage } from './extractor/detail';
+import handler from './utils/handler.js';
+import filterOptions, { genreNames } from './utils/filter.js';
+import { NotFoundError, validationError } from './utils/errors.js';
+import { animeNumId, getHtml } from './fetch.js';
+import { extractHomepage } from './extractor/home.js';
+import { extractDetailpage } from './extractor/detail.js';
 import {
   extractFilterResults,
   extractListPage,
   FilterAjaxResponse,
   ListPageResponse,
-} from './extractor/list';
-import { getEpisodes } from './extractor/eps';
-import { getServers, ServerType } from './extractor/servers';
-import { getCharacters } from './extractor/chars';
-import { extractCharacterDetail } from './extractor/char';
-import { extractNews } from './extractor/news';
-import { extractSchedule, ScheduledAnime, ScheduleJson } from './extractor/sched';
-import { extractNextEpisodeSchedule, NextEpisodeScheduleJson } from './extractor/next';
-import { extractSuggestions, SuggestionAjaxResponse } from './extractor/suggest';
-import { extractTopSearch } from './extractor/top';
+} from './extractor/list.js';
+import { getEpisodes } from './extractor/eps.js';
+import { getServers, ServerType } from './extractor/servers.js';
+import { getCharacters } from './extractor/chars.js';
+import { extractCharacterDetail } from './extractor/char.js';
+import { extractNews } from './extractor/news.js';
+import { extractSchedule, ScheduledAnime, ScheduleJson } from './extractor/sched.js';
+import { extractNextEpisodeSchedule, NextEpisodeScheduleJson } from './extractor/next.js';
+import { extractSuggestions, SuggestionAjaxResponse } from './extractor/suggest.js';
+import { extractTopSearch } from './extractor/top.js';
 
 const router = new Hono();
 

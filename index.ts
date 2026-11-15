@@ -1,12 +1,13 @@
-import app from './src/app';
-import config from './src/config';
+import app from './src/app.js';
+import config from './src/config.js';
 
-const PORT = config.port;
+if (typeof Bun !== 'undefined') {
+  console.log(`Server running at http://0.0.0.0:${config.port}`);
+  Bun.serve({
+    port: config.port,
+    hostname: '0.0.0.0',
+    fetch: app.fetch,
+  });
+}
 
-console.log(`Server running at http://0.0.0.0:${PORT}`);
-
-export default {
-  port: PORT,
-  hostname: '0.0.0.0',
-  fetch: app.fetch,
-};
+export default app;

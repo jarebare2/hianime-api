@@ -1,5 +1,5 @@
-import { getPlayerHosts, PlayerHosts, siteAjax } from '../fetch';
-import { validationError } from '../utils/errors';
+import { getPlayerHosts, PlayerHosts, siteAjax } from '../fetch.js';
+import { validationError } from '../utils/errors.js';
 
 export type ServerType = 'sub' | 'dub';
 
