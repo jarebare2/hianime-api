@@ -223,8 +223,8 @@ router.get(
     const keyword = c.req.query('keyword') || null;
     const page = c.req.query('page') || '1';
     if (!keyword) throw new validationError('query is required');
-    const noSpaceKeyword = keyword.trim().toLowerCase().replace(/\s+/g, '+');
-    const result = await getHtml(`/search?keyword=${noSpaceKeyword}&page=${page}`);
+    const params = new URLSearchParams({ keyword: keyword.trim(), page });
+    const result = await getHtml(`/search?${params.toString()}`);
     if (!result.success || !result.data) {
       throw new validationError(result.message || 'make sure given endpoint is correct');
     }
@@ -258,13 +258,10 @@ router.get(
     } = c.req.query();
 
     if (keyword) {
-      const noSpaceKeyword = keyword.trim().replace(/\s+/g, '+');
       const pageNum = Number(page) || 1;
-      const url =
-        pageNum > 1
-          ? `/search?keyword=${encodeURIComponent(noSpaceKeyword)}&page=${pageNum}`
-          : `/search?keyword=${encodeURIComponent(noSpaceKeyword)}`;
-      const result = await getHtml(url);
+      const params = new URLSearchParams({ keyword: keyword.trim() });
+      if (pageNum > 1) params.set('page', String(pageNum));
+      const result = await getHtml(`/search?${params.toString()}`);
       if (!result.success || !result.data) {
         throw new validationError(result.message || 'something went wrong will queries');
       }
@@ -314,8 +311,8 @@ router.get(
   handler(async (c: Context) => {
     const keyword = c.req.query('keyword') || null;
     if (!keyword) throw new validationError('query is required');
-    const noSpaceKeyword = keyword.trim().replace(/\s+/g, '+');
-    const result = await getHtml(`/ajax/search?keyword=${encodeURIComponent(noSpaceKeyword)}`);
+    const params = new URLSearchParams({ keyword: keyword.trim() });
+    const result = await getHtml(`/ajax/search?${params.toString()}`);
     if (!result.success || !result.data) {
       throw new validationError(result.message || 'suggestion not found');
     }

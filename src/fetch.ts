@@ -28,10 +28,12 @@ export const getHtml = async (
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt < retries; attempt++) {
+    let done: (() => void) | undefined;
     try {
       if (attempt > 0) await sleep(RETRY_DELAY * Math.pow(2, attempt - 1));
 
-      const { signal, done } = withTimeout(TIMEOUT);
+      const timeout = withTimeout(TIMEOUT);
+      done = timeout.done;
       const response = await fetch(url, {
         headers: {
           ...(config.headers || {}),
@@ -40,9 +42,8 @@ export const getHtml = async (
           'Accept-Language': 'en-US,en;q=0.5',
           Connection: 'keep-alive',
         },
-        signal,
+        signal: timeout.signal,
       });
-      done();
 
       if (response.status === 429) {
         const retryAfter = response.headers.get('retry-after');
@@ -65,6 +66,8 @@ export const getHtml = async (
       }
       if (lastError.message.includes('HTTP 40') && !lastError.message.includes('429')) break;
       if (attempt === retries - 1) break;
+    } finally {
+      done?.();
     }
   }
 
@@ -74,45 +77,52 @@ export const getHtml = async (
 /** Token-protected JSON ajax (`/ajax/episodes`, `/ajax/server`, …). */
 export const siteAjax = async <T>(ajaxPath: string, refererPath: string = '/home'): Promise<T> => {
   const page = withTimeout(AJAX_TIMEOUT);
-  const pageRes = await fetch(`${config.baseurl}${refererPath}`, {
-    headers: {
-      'User-Agent': ua,
-      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      Referer: `${config.baseurl}/home`,
-    },
-    signal: page.signal,
-  });
-  page.done();
+  let html: string;
+  let rawCookies: string[];
+  try {
+    const pageRes = await fetch(`${config.baseurl}${refererPath}`, {
+      headers: {
+        'User-Agent': ua,
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        Referer: `${config.baseurl}/home`,
+      },
+      signal: page.signal,
+    });
+    if (!pageRes.ok) throw new Error(`Session bootstrap failed: HTTP ${pageRes.status}`);
+    html = await pageRes.text();
+    rawCookies =
+      typeof (pageRes.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie ===
+      'function'
+        ? (pageRes.headers as Headers & { getSetCookie: () => string[] }).getSetCookie()
+        : [];
+  } finally {
+    page.done();
+  }
 
-  if (!pageRes.ok) throw new Error(`Session bootstrap failed: HTTP ${pageRes.status}`);
-
-  const html = await pageRes.text();
   const token = html.match(TOKEN_RE)?.[1];
   if (!token) throw new Error('Session bootstrap failed: no page token found');
 
-  const rawCookies =
-    typeof (pageRes.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie ===
-    'function'
-      ? (pageRes.headers as Headers & { getSetCookie: () => string[] }).getSetCookie()
-      : [];
   const cookie = rawCookies.map(c => c.split(';')[0].trim()).join('; ');
 
   const ajax = withTimeout(AJAX_TIMEOUT);
-  const res = await fetch(`${config.baseurl}${ajaxPath}`, {
-    headers: {
-      'User-Agent': ua,
-      Accept: 'application/json',
-      Referer: `${config.baseurl}${refererPath}`,
-      'X-Requested-With': 'XMLHttpRequest',
-      'X-Page-Token': token,
-      ...(cookie ? { Cookie: cookie } : {}),
-    },
-    signal: ajax.signal,
-  });
-  ajax.done();
+  try {
+    const res = await fetch(`${config.baseurl}${ajaxPath}`, {
+      headers: {
+        'User-Agent': ua,
+        Accept: 'application/json',
+        Referer: `${config.baseurl}${refererPath}`,
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-Page-Token': token,
+        ...(cookie ? { Cookie: cookie } : {}),
+      },
+      signal: ajax.signal,
+    });
 
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-  return (await res.json()) as T;
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    return (await res.json()) as T;
+  } finally {
+    ajax.done();
+  }
 };
 
 export type PlayerHosts = { flixera: string; cdn: string; zcdn: string };
