@@ -9,7 +9,7 @@
 
 **A RESTful API that utilizes web scraping to fetch anime content from zanix.tr**
 
-[Documentation](#documentation) • [Installation](#installation) • [API Endpoints](#api-endpoints) • [Development](#development)
+[Documentation](#documentation) • [Installation](#installation) • [GET Endpoint Index](#get-endpoint-index) • [Development](#development)
 
 </div>
 
@@ -26,10 +26,11 @@
   - [Docker Deployment](#docker-deployment)
   - [Vercel Deployment](#vercel-deployment-serverless--recommended)
 - [Video Integration](#video-integration)
-- [Documentation](#documentation)
+- [GET Endpoint Index](#get-endpoint-index)
+- [Health Check](#health-check)
+- [Endpoint Documentation](#documentation)
   - [Anime Home Page](#1-get-anime-home-page)
-  - [Anime Schedule](#2-get-anime-schedule)
-  - [Next Episode Schedule](#3-get-next-episode-schedule)
+  - [Next Episode Schedule](#2-get-next-episode-schedule)
   - [Anime List Page](#4-get-anime-list-page)
   - [Anime Details](#5-get-anime-detailed-info)
   - [Search Results](#6-get-search-results)
@@ -50,17 +51,16 @@
   - [Recently Added](#23-get-recently-added)
   - [Recently Updated](#24-get-recently-updated)
   - [Top Upcoming](#25-get-top-upcoming)
-  - [Genre List](#26-get-anime-by-genre)
-  - [Producer List](#27-get-anime-by-producer)
+  - [Anime by Genre](#26-get-anime-by-genre)
+  - [Anime by Producer](#27-get-anime-by-producer)
   - [Subbed Anime](#28-get-subbed-anime)
   - [Dubbed Anime](#29-get-dubbed-anime)
-  - [Movies](#30-get-anime-movies)
+  - [Anime Movies](#30-get-anime-movies)
   - [TV Series](#31-get-tv-series)
   - [OVA](#32-get-ova)
   - [ONA](#33-get-ona)
   - [Special](#34-get-special)
   - [Events](#35-get-events)
-  - [Anime News](#37-get-anime-news)
   - [Anime News](#37-get-anime-news)
   - [Random Anime](#39-get-random-anime)
 - [Development](#development)
@@ -239,9 +239,58 @@ docker-compose up -d
 
 ---
 
+## GET Endpoint Index
+
+The application exposes two operational GET routes and the following versioned API routes. Replace `https://your-domain.example` with the origin of your deployment when calling from another app. The Vercel deployment must allow public access for browser clients; deployment protection redirects unauthenticated requests to Vercel sign-in.
+
+| Method and path | Purpose |
+| --- | --- |
+| `GET /ping` | Health check; returns status, timestamp, and environment. |
+| `GET /favicon.ico` | Returns an empty `204` response for browser favicon requests. |
+| `GET /api/v2/home` | Home sections such as spotlight and trending anime. |
+| `GET /api/v2/top-search` | Popular search terms. |
+| `GET /api/v2/schedules?date=YYYY-MM-DD` | Seven days of schedules, starting today or the optional date. |
+| `GET /api/v2/schedule/next/:id` | Next episode schedule for an anime. |
+| `GET /api/v2/anime/:id` | Anime details. |
+| `GET /api/v2/animes/:query?page=:page` | Paginated lists that do not require a category. |
+| `GET /api/v2/animes/:query/:category?page=:page` | Paginated genre, producer, or A–Z lists. |
+| `GET /api/v2/search?keyword=:query&page=:page` | Paginated search results. |
+| `GET /api/v2/filter/options` | Available filter values. |
+| `GET /api/v2/filter` | Filter anime by query parameters. |
+| `GET /api/v2/suggestion?keyword=:query` | Search suggestions. |
+| `GET /api/v2/characters/:id?page=:page` | Anime characters and voice actors. |
+| `GET /api/v2/character/:id` | Character or voice actor details. |
+| `GET /api/v2/episodes/:id` | Episodes for an anime. |
+| `GET /api/v2/servers/:episodeId?type=:type` | Streaming server and embed information. |
+| `GET /api/v2/genres` | Available genres. |
+| `GET /api/v2/news?page=:page` | Paginated anime news. |
+| `GET /api/v2/random` | A random anime ID. |
+
+The root path `/` is not an API endpoint and returns a JSON `404`. All `/api/v2` routes return JSON; `/ping` returns JSON and `/favicon.ico` returns no content.
+
+### Health Check
+
+Use this route to verify that the service is responding:
+
+```javascript
+const response = await fetch('https://your-domain.example/ping');
+const health = await response.json();
+console.log(health);
+```
+
+**Response:**
+
+```json
+{
+  "status": "ok",
+  "timestamp": "2026-11-15T00:00:00.000Z",
+  "environment": "vercel"
+}
+```
+
 ## Documentation
 
-All endpoints return JSON responses. Base URL: `/api/v2`
+The versioned API base path is `/api/v2`. The examples below use relative paths; prepend your deployment origin when calling from another app (for example, `https://your-domain.example/api/v2/home`).
 
 ### 1. GET Anime Home Page
 
@@ -333,10 +382,13 @@ console.log(data);
 
 Retrieve anime lists based on various categories and filters.
 
-**Endpoint:**
+**Endpoints:**
 ```
+GET /api/v2/animes/:query?page=:page
 GET /api/v2/animes/:query/:category?page=:page
 ```
+
+The category is required for `genre` and `producer`, optional for `az-list`, and ignored for other queries.
 
 **Valid Queries:**
 
